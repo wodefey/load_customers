@@ -30,13 +30,14 @@ rows.forEach(row => {
 
 	if (row['Brew Log 2019.02.27']) {
 		customer.brew_logs = {'2019.02.27' : true};
+		customer.newsletter = true;
 	} else {
 		customer.brew_logs  = {'2019.0217' : false};
+		customer.newsletter = false;
 	}
 
 	customers.push(customer);
 });
-
 
 (async () => {
     let client;
@@ -58,11 +59,23 @@ rows.forEach(row => {
 		// Select collection for insert
 		const col = db.collection('customers');
 
-		// Drop existing inventory collection
-		let result = await col.findOne({'email': customers[0].email});
-  
-		// Insert test inventory documents
-		console.log(result);
+		// Insert customers, or update existing documents
+		customers.forEach(async (customer) => {
+			await col.updateOne(
+				{'email': customer.email},
+				{$set: {
+					'firstname': customer.firstname,
+					'lastname': customer.lastname,
+					'zipcode': customer.zipcode,
+					'confirmed': customer.confirmed,
+					'announcement': customer.announcement,
+					'newsletter': customer.newsletter,
+					'brew_logs': customer.brew_logs
+				}},
+				{upsert: true}
+			);
+		});
+
     } catch (err) {
 		console.log(err.message);
     } finally {
