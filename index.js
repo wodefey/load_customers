@@ -7,6 +7,8 @@ const data = fs.readFileSync('customers.csv');
 const rows = parse(data, {columns: true, trim: true});
 
 const customers = [];
+let doc_updated = 0;
+let doc_inserted = 0;
 
 rows.forEach(row => {
 	let customer = {};
@@ -29,10 +31,10 @@ rows.forEach(row => {
 	}
 
 	if (row['Brew Log 2019.02.27']) {
-		customer.brew_logs = {'2019.02.27' : true};
+		customer.brew_logs = {'2019-02-27' : true};
 		customer.newsletter = true;
 	} else {
-		customer.brew_logs  = {'2019.0217' : false};
+		customer.brew_logs  = {'2019-02-27' : false};
 		customer.newsletter = false;
 	}
 
@@ -59,28 +61,88 @@ rows.forEach(row => {
 		// Select collection for insert
 		const col = db.collection('customers');
 
-		// Insert customers, or update existing documents
+		// Find last customer id
+		let doc = await col.find().sort({'id': -1}).limit(1).toArray();
+		let last_id = doc[0]['id'];
+		console.log(`Last production id: ${last_id}`);
+
+		const null_billing_address = {
+			billing_firstname: '',
+			billing_lastname: '',
+			billing_address1: '',
+			billing_address2: '',
+			billing_city: '',
+			billing_state: '',
+			billing_zipcode: ''
+		};
+
+		const null_shipping_address = {
+			shipping_firstname: '',
+			shipping_lastname: '',
+			shipping_address1: '',
+			shipping_address2: '',
+			shipping_city: '',
+			shipping_state: '',
+			shipping_zipcode: ''
+		};
+
 		customers.forEach(async (customer) => {
-			await col.updateOne(
-				{'email': customer.email},
-				{$set: {
-					'firstname': customer.firstname,
-					'lastname': customer.lastname,
-					'zipcode': customer.zipcode,
-					'confirmed': customer.confirmed,
-					'announcement': customer.announcement,
-					'newsletter': customer.newsletter,
-					'brew_logs': customer.brew_logs
-				}},
-				{upsert: true}
-			);
+			doc = await col.findOne({'email': customer.email});
+			if (doc) {
+				console.log(`Customer found: ${doc.email}`);
+
+				if (!doc.firstname) {
+					doc.firstname = customer.firstname;
+				}
+
+				if (!doc.lastname) {
+					doc.lastname = customer.lastname;
+				}
+
+				if (!customer.zipcode) {
+					doc.zipcode = customer.zipcode;
+				}
+
+				doc.confirmed = true;
+				doc.newsletter = customer.newsletter;
+				doc.announcement = customer.announcement;
+				doc.brew_logs  = customer.brew_logs;
+
+				try {
+					let result = await col.updateOne({'email': customer.email}, {$set: doc);
+					if (result.modifiedCount != 1) {
+						throw new Error(`Error updating customer ${doc.lastname}`);
+					}
+				} catch (err) {
+					console.log(err.message);
+				}
+
+				doc_updated += 1;
+			} else {
+				console.log(`Customer not found: ${customer.email}`)
+				last_id += 1;
+				customer.id = last_id;
+
+				customer.notes = '';
+				
+				customer.billing_address = null_billing_address;
+				customer.shipping_address = null_shipping_address;
+
+				try {
+					let result = await col.insertOne(customer);
+					if (result.n != 1) {
+						throw new Error(`Error inserting customer ${customer.lastname} into database`);
+					}
+				} catch (err) {
+					console.log(err.message);
+				}
+
+				doc_inserted += 1;
+			}
 		});
 
     } catch (err) {
 		console.log(err.message);
-    } finally {
-		client.close();
-    }
+    } 
+	
 })();
-
-console.log(customers);
