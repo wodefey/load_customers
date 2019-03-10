@@ -103,7 +103,7 @@ rows.forEach(row => {
 					doc.zipcode = customer.zipcode;
 				}
 
-				doc.confirmed = true;
+				doc.confirmed = customer.confirmed;
 				doc.newsletter = customer.newsletter;
 				doc.announcement = customer.announcement;
 				doc.brew_logs  = customer.brew_logs;
