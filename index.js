@@ -86,7 +86,7 @@ rows.forEach(row => {
 			shipping_zipcode: ''
 		};
 
-		customers.forEach(async (customer) => {
+		for (customer of customers) {
 			doc = await col.findOne({'email': customer.email});
 			if (doc) {
 				console.log(`Customer found: ${doc.email}`);
@@ -109,7 +109,7 @@ rows.forEach(row => {
 				doc.brew_logs  = customer.brew_logs;
 
 				try {
-					let result = await col.updateOne({'email': customer.email}, {$set: doc);
+					let result = await col.updateOne({'email': customer.email}, {$set: doc});
 					if (result.modifiedCount != 1) {
 						throw new Error(`Error updating customer ${doc.lastname}`);
 					}
@@ -124,13 +124,13 @@ rows.forEach(row => {
 				customer.id = last_id;
 
 				customer.notes = '';
-				
+
 				customer.billing_address = null_billing_address;
 				customer.shipping_address = null_shipping_address;
 
 				try {
 					let result = await col.insertOne(customer);
-					if (result.n != 1) {
+					if (result.insertedCount != 1) {
 						throw new Error(`Error inserting customer ${customer.lastname} into database`);
 					}
 				} catch (err) {
@@ -139,7 +139,7 @@ rows.forEach(row => {
 
 				doc_inserted += 1;
 			}
-		});
+		}
 
     } catch (err) {
 		console.log(err.message);
